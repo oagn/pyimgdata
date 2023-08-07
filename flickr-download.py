@@ -181,7 +181,7 @@ class FlickrImageDownload:
         if self.config_sources_file:
             logging.info("Writing sources file.")
             filename = os.path.join(self.config_path, self.config_prefix, self.config_sources_file+'.csv')
-            with open(filename, 'w', newline='') as csvfile:  
+            with open(filename, 'w', encoding="utf-8", newline='') as csvfile:  
                 csvwriter = csv.writer(csvfile)  
                 csvwriter.writerow(['url', 'file','license','title','datetaken','latitude','longitude','accuracy','width','height'])  
                 csvwriter.writerows(self.sources)
