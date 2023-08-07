@@ -94,7 +94,6 @@ class FlickrImageDownload:
 
         if int(license) in self.config_license_allowed and url:
             image, h = self.load_image(url)
-            
             if image:
                 return image, url
             else:
@@ -181,7 +180,7 @@ class FlickrImageDownload:
         if self.config_sources_file:
             logging.info("Writing sources file.")
             filename = os.path.join(self.config_path, self.config_prefix, self.config_sources_file+'.csv')
-            with open(filename, 'w', newline='') as csvfile:  
+            with open(filename, 'w', encoding="utf-8", newline='') as csvfile:  
                 csvwriter = csv.writer(csvfile)  
                 csvwriter.writerow(['url', 'file','license','title','datetaken','latitude','longitude','accuracy','width','height'])  
                 csvwriter.writerows(self.sources)
@@ -212,6 +211,8 @@ class FlickrImageDownload:
                 self.get_metadata(url, photo, img)
                 if path:
                 #    img = self.process_image(img, path)
+                    # converting image to RGB , basically removing transparent backgrounds
+                    img = img.convert("RGB")
                     img.save(path)
             
             if self.track_progress():
