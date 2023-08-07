@@ -48,8 +48,8 @@ class FlickrImageDownload:
         self.config_min_width = int(self.config['Process']['min_width'])
         self.config_min_height = int(self.config['Process']['min_height'])
         
-        if "sources_file" in self.config['Download']:
-            self.config_sources_file = self.config['Download']['sources_file']
+        if "prefix" in self.config['Download']:
+            self.config_sources_file = self.config['Download']['prefix']
         else:
             self.config_sources_file = None
             
@@ -84,23 +84,27 @@ class FlickrImageDownload:
         
 
     def obtain_photo(self, photo):
-        url = photo.get('url_c')
+        # Check if there is an original url, if there is get the original format, 
+        # if not get url_b - the largest format available for all public images
+        if not photo.get('url_o'):
+            url = photo.get('url_b')
+        else:
+            url = photo.get("url_o")
         license = photo.get('license')
 
         if int(license) in self.config_license_allowed and url:
             image, h = self.load_image(url)
             
             if image:
-                return image
+                return image, url
             else:
                 self.error_count += 1
                 
-        return None
+        return None, None
     
     def check_to_keep_photo(self, url, image):
         h = sha256(image.tobytes()).hexdigest()
-        p = os.path.join(self.config_path, f"{self.config_prefix}-{h}.{self.config_format}")
-        self.sources.append([url,p])
+        p = os.path.join(self.config_path, self.config_prefix, f"{self.config_prefix}-{h}.{self.config_format}")
         if not os.path.exists(p):
             self.download_count += 1
             logging.debug(f"Downloaded: {url} to {p}")
@@ -109,6 +113,26 @@ class FlickrImageDownload:
             self.cached += 1
             logging.debug(f"Image already exists: {url}")
             return None
+        
+    def get_metadata(self, url, photo, image):
+        hash = sha256(image.tobytes()).hexdigest()
+        p = os.path.join(self.config_path, f"{self.config_prefix}-{hash}.{self.config_format}")
+        #url_l, url_o ,license, description, date_taken, owner_name, original_format, geo, o_dims
+        l = photo.get('license')
+        t = photo.get('title')
+        #d = photo.get('description')
+        dt = photo.get('datetaken')
+        lat = photo.get('latitude')
+        lon = photo.get('longitude') 
+        geo_acc = photo.get('accuracy')
+        if not photo.get('width_o'):
+            w = photo.get('width_l')
+            h = photo.get('height_l')
+        else:
+            w = photo.get('width_o')
+            h = photo.get('height_o')
+        self.sources.append([url, p, l, t, dt, lat, lon, geo_acc, w, h])
+        return None
         
     def process_image(self, image, path):        
         width, height = image.size
@@ -156,11 +180,15 @@ class FlickrImageDownload:
     def write_sources(self):
         if self.config_sources_file:
             logging.info("Writing sources file.")
-            filename = os.path.join(self.config_path, self.config_sources_file)
+            filename = os.path.join(self.config_path, self.config_prefix, self.config_sources_file+'.csv')
             with open(filename, 'w', newline='') as csvfile:  
                 csvwriter = csv.writer(csvfile)  
-                csvwriter.writerow(['url', 'file'])  
+                csvwriter.writerow(['url', 'file','license','title','datetaken','latitude','longitude','accuracy','width','height'])  
                 csvwriter.writerows(self.sources)
+
+    def create_folder(self,path):
+        if not os.path.isdir(path):
+            os.makedirs(path)
 
     def run(self):
         logging.info("Starting...")
@@ -169,19 +197,21 @@ class FlickrImageDownload:
         photos = self.flickr.walk(text=self.config_search,
             tag_mode='all',
             tags=self.config_search,
-            extras='url_c,license',
-            per_page=100,           
+            extras='url_l, url_o ,license, description, date_taken, owner_name, original_format, geo, o_dims',
+            per_page=100,         
             sort='relevance',
-            #license='0'
             )
 
+        save_path = os.path.join(self.config_path, self.config_prefix)
+        self.create_folder(save_path)
+
         for photo in photos:
-            url = photo.get('url_c')
-            img = self.obtain_photo(photo)
+            img, url = self.obtain_photo(photo)
             if img: 
                 path = self.check_to_keep_photo(url, img)
+                self.get_metadata(url, photo, img)
                 if path:
-                    img = self.process_image(img, path)
+                #    img = self.process_image(img, path)
                     img.save(path)
             
             if self.track_progress():
