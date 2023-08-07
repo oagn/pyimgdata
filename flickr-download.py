@@ -94,7 +94,6 @@ class FlickrImageDownload:
 
         if int(license) in self.config_license_allowed and url:
             image, h = self.load_image(url)
-            
             if image:
                 return image, url
             else:
@@ -212,6 +211,8 @@ class FlickrImageDownload:
                 self.get_metadata(url, photo, img)
                 if path:
                 #    img = self.process_image(img, path)
+                    # converting image to RGB , basically removing transparent backgrounds
+                    img = img.convert("RGB")
                     img.save(path)
             
             if self.track_progress():
