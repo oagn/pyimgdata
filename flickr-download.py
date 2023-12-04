@@ -218,6 +218,7 @@ class FlickrImageDownload:
             if self.track_progress():
                 break
         
+        print(os.path.join(self.config_path, self.config_prefix, self.config_sources_file+'.csv'))
         self.write_sources()
         elapsed_time = time.time() - self.start_time
         logging.info("Complete, elapsed time: {}".format(hms_string(elapsed_time)))
